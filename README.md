@@ -4,6 +4,36 @@ A secure, asynchronous notification system built with Spring Boot, Spring Cloud 
 
 ## Architecture
 
+```text
+                    ┌──────────────┐
+                    │   Keycloak   │
+                    │ OAuth2 / JWT │
+                    └──────┬───────┘
+                           │
+                           ▼
+Client ─────────► API Gateway :8080
+                    │
+                    │ REST + JWT
+                    ▼
+              User Service :8081
+                    │
+                    │ PostgreSQL transaction
+                    ▼
+               User Database
+                    │
+                    │ Transactional Outbox
+                    ▼
+               NATS JetStream
+                    │
+                    │ user.created
+                    ▼
+          Notification Service :8082
+                    │
+                    │ PostgreSQL
+                    ▼
+          Notification Database
+```
+
 The system contains three independently deployable applications:
 
 - **API Gateway:** public entry point on port `8080`; validates Keycloak JWTs and routes user requests.
