@@ -2,16 +2,39 @@
 
 ## Component Diagram
 
-```mermaid
-flowchart LR
-    Client[API Client] -->|HTTPS in production / JWT| Gateway[API Gateway]
-    Gateway -->|JWT forwarded| User[User Service]
-    Keycloak[Keycloak] -->|JWKS| Gateway
-    Keycloak -->|JWKS| User
-    User --> UserDB[(User PostgreSQL)]
-    User -->|Transactional outbox relay| NATS[(NATS JetStream)]
-    NATS -->|Durable user.created consumer| Notification[Notification Service]
-    Notification --> NotificationDB[(Notification PostgreSQL)]
+```text
+                    ┌──────────────────┐
+                    │     Keycloak     │
+                    │   OAuth2 / JWT   │
+                    └────────┬─────────┘
+                             │ JWKS
+                             ▼
+┌────────────┐     ┌──────────────────┐
+│ API Client │────►│   API Gateway    │
+└────────────┘ JWT │      :8080       │
+                   └────────┬─────────┘
+                            │ REST + JWT
+                            ▼
+                   ┌──────────────────┐
+                   │   User Service   │
+                   │      :8081       │
+                   └────┬────────┬────┘
+                        │        │ Transactional Outbox
+             PostgreSQL │        ▼
+                        │   ┌──────────────────┐
+                        ▼   │  NATS JetStream  │
+              ┌────────────┐└────────┬─────────┘
+              │  User DB   │         │ user.created
+              └────────────┘         ▼
+                            ┌──────────────────────┐
+                            │ Notification Service │
+                            │        :8082         │
+                            └──────────┬───────────┘
+                                       │ PostgreSQL
+                                       ▼
+                            ┌──────────────────────┐
+                            │   Notification DB    │
+                            └──────────────────────┘
 ```
 
 Only the API Gateway is a public business endpoint. Notification Service does not expose a business REST API, and the backend services never communicate through REST or WebSockets.
