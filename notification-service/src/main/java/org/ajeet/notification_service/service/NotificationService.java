@@ -18,12 +18,15 @@ public class NotificationService {
     }
 
     @Transactional
-    public Notification createForUser(UserCreatedEvent event) {
+    public void createForUser(UserCreatedEvent event) {
+        if (notificationRepository.existsByUserId(event.id())) {
+            return;
+        }
         Notification notification = new Notification();
         notification.setUserId(event.id());
         notification.setRecipient(event.email());
         notification.setMessage("Welcome " + event.name() + ", your account has been created.");
         notification.setCreatedAt(LocalDateTime.now());
-        return notificationRepository.save(notification);
+        notificationRepository.saveAndFlush(notification);
     }
 }
