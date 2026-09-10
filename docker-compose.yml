@@ -1,21 +1,21 @@
 services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.3.3
-    container_name: notification-system-keycloak
     command: start-dev --import-realm
     environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME}
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:?Set KEYCLOAK_ADMIN_USERNAME in .env}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD in .env}
     ports:
       - "8090:8080"
     volumes:
       - ./keycloak/notification-system-realm.json:/opt/keycloak/data/import/notification-system-realm.json:ro
+    restart: unless-stopped
+
   nats:
     image: nats:2.10-alpine
-    container_name: notification-system-nats
     environment:
-      NATS_USER_SERVICE_PASSWORD: ${NATS_USER_SERVICE_PASSWORD}
-      NATS_NOTIFICATION_SERVICE_PASSWORD: ${NATS_NOTIFICATION_SERVICE_PASSWORD}
+      NATS_USER_SERVICE_PASSWORD: ${NATS_USER_SERVICE_PASSWORD:?Set NATS_USER_SERVICE_PASSWORD in .env}
+      NATS_NOTIFICATION_SERVICE_PASSWORD: ${NATS_NOTIFICATION_SERVICE_PASSWORD:?Set NATS_NOTIFICATION_SERVICE_PASSWORD in .env}
     ports:
       - "4222:4222"
       - "8222:8222"
@@ -23,23 +23,122 @@ services:
     volumes:
       - ./nats/nats.conf:/etc/nats/nats.conf:ro
       - nats_data:/data
-  postgres:
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  user-postgres:
     image: postgres:16-alpine
-    container_name: notification-system-postgres
     environment:
       POSTGRES_USER: user_service
-      POSTGRES_PASSWORD: user_service
+      POSTGRES_PASSWORD: ${USER_DB_PASSWORD:?Set USER_DB_PASSWORD in .env}
       POSTGRES_DB: user_service
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - user_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U user_service -d user_service"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+
+  notification-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: notification_service
+      POSTGRES_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?Set NOTIFICATION_DB_PASSWORD in .env}
+      POSTGRES_DB: notification_service
+    ports:
+      - "5433:5432"
+    volumes:
+      - notification_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notification_service -d notification_service"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  user-service:
+    build:
+      context: ./user-service
+    environment:
+      DB_URL: jdbc:postgresql://user-postgres:5432/user_service
+      DB_USERNAME: user_service
+      DB_PASSWORD: ${USER_DB_PASSWORD:?Set USER_DB_PASSWORD in .env}
+      DB_DRIVER: org.postgresql.Driver
+      NATS_URL: nats://nats:4222
+      NATS_USERNAME: user-service
+      NATS_PASSWORD: ${NATS_USER_SERVICE_PASSWORD:?Set NATS_USER_SERVICE_PASSWORD in .env}
+      JWT_ISSUER_URI: http://localhost:8090/realms/notification-system
+      JWT_JWK_SET_URI: http://keycloak:8080/realms/notification-system/protocol/openid-connect/certs
+    depends_on:
+      user-postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+  notification-service:
+    build:
+      context: ./notification-service
+    environment:
+      DB_URL: jdbc:postgresql://notification-postgres:5432/notification_service
+      DB_USERNAME: notification_service
+      DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?Set NOTIFICATION_DB_PASSWORD in .env}
+      DB_DRIVER: org.postgresql.Driver
+      NATS_URL: nats://nats:4222
+      NATS_USERNAME: notification-service
+      NATS_PASSWORD: ${NATS_NOTIFICATION_SERVICE_PASSWORD:?Set NATS_NOTIFICATION_SERVICE_PASSWORD in .env}
+    depends_on:
+      notification-postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8082/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+    environment:
+      USER_SERVICE_URL: http://user-service:8081
+      JWT_ISSUER_URI: http://localhost:8090/realms/notification-system
+      JWT_JWK_SET_URI: http://keycloak:8080/realms/notification-system/protocol/openid-connect/certs
+    ports:
+      - "8080:8080"
+    depends_on:
+      user-service:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
 
 volumes:
   nats_data:
-  postgres_data:
+  user_postgres_data:
+  notification_postgres_data:
