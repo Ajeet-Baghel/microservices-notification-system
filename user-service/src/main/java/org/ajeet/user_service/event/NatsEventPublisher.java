@@ -7,6 +7,7 @@ import io.nats.client.JetStream;
 import io.nats.client.JetStreamApiException;
 import io.nats.client.JetStreamManagement;
 import io.nats.client.Nats;
+import io.nats.client.Options;
 import io.nats.client.api.StorageType;
 import io.nats.client.api.StreamConfiguration;
 import jakarta.annotation.PreDestroy;
@@ -23,12 +24,19 @@ public class NatsEventPublisher implements EventPublisher {
 
     private final ObjectMapper objectMapper;
     private final String natsUrl;
+    private final String natsUsername;
+    private final String natsPassword;
     private Connection connection;
     private JetStream jetStream;
 
-    public NatsEventPublisher(ObjectMapper objectMapper, @Value("${nats.url:nats://localhost:4222}") String natsUrl) {
+    public NatsEventPublisher(ObjectMapper objectMapper,
+                              @Value("${nats.url:nats://localhost:4222}") String natsUrl,
+                              @Value("${nats.username}") String natsUsername,
+                              @Value("${nats.password}") String natsPassword) {
         this.objectMapper = objectMapper;
         this.natsUrl = natsUrl;
+        this.natsUsername = natsUsername;
+        this.natsPassword = natsPassword;
     }
 
     @Override
@@ -45,7 +53,10 @@ public class NatsEventPublisher implements EventPublisher {
     private synchronized JetStream getJetStream() {
         if (jetStream == null) {
             try {
-                connection = Nats.connect(natsUrl);
+                connection = Nats.connect(Options.builder()
+                        .server(natsUrl)
+                        .userInfo(natsUsername.toCharArray(), natsPassword.toCharArray())
+                        .build());
                 JetStreamManagement management = connection.jetStreamManagement();
                 try {
                     management.getStreamInfo(USER_EVENTS_STREAM);

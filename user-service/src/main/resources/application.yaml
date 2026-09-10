@@ -22,3 +22,5 @@ server:
 
 nats:
   url: ${NATS_URL:nats://localhost:4222}
+  username: ${NATS_USERNAME:user-service}
+  password: ${NATS_PASSWORD}

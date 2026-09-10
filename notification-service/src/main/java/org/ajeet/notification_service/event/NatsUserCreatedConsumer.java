@@ -7,6 +7,7 @@ import io.nats.client.JetStream;
 import io.nats.client.JetStreamApiException;
 import io.nats.client.JetStreamManagement;
 import io.nats.client.Nats;
+import io.nats.client.Options;
 import io.nats.client.PushSubscribeOptions;
 import io.nats.client.api.AckPolicy;
 import io.nats.client.api.ConsumerConfiguration;
@@ -36,18 +37,27 @@ public class NatsUserCreatedConsumer {
     private final ObjectMapper objectMapper;
     private final NotificationService notificationService;
     private final String natsUrl;
+    private final String natsUsername;
+    private final String natsPassword;
     private Connection connection;
 
     public NatsUserCreatedConsumer(ObjectMapper objectMapper, NotificationService notificationService,
-                                   @Value("${nats.url:nats://localhost:4222}") String natsUrl) {
+                                   @Value("${nats.url:nats://localhost:4222}") String natsUrl,
+                                   @Value("${nats.username}") String natsUsername,
+                                   @Value("${nats.password}") String natsPassword) {
         this.objectMapper = objectMapper;
         this.notificationService = notificationService;
         this.natsUrl = natsUrl;
+        this.natsUsername = natsUsername;
+        this.natsPassword = natsPassword;
     }
 
     @PostConstruct
     public void subscribe() throws IOException, InterruptedException, JetStreamApiException {
-        connection = Nats.connect(natsUrl);
+        connection = Nats.connect(Options.builder()
+                .server(natsUrl)
+                .userInfo(natsUsername.toCharArray(), natsPassword.toCharArray())
+                .build());
         ensureStream(connection.jetStreamManagement());
         JetStream jetStream = connection.jetStream();
         Dispatcher dispatcher = connection.createDispatcher();
