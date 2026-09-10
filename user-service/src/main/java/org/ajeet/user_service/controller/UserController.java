@@ -1,6 +1,8 @@
 package org.ajeet.user_service.controller;
 
-import org.ajeet.user_service.entity.User;
+import jakarta.validation.Valid;
+import org.ajeet.user_service.dto.CreateUserRequest;
+import org.ajeet.user_service.dto.UserResponse;
 import org.ajeet.user_service.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,8 +23,8 @@ public class UserController {
     }
 
     @PostMapping
-    public ResponseEntity<User> createUser(@RequestBody User user) {
-        User created = userService.createUser(user);
+    public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserRequest request) {
+        UserResponse created = userService.createUser(request);
         return ResponseEntity.created(URI.create("/api/users/" + created.getId())).body(created);
     }
 }

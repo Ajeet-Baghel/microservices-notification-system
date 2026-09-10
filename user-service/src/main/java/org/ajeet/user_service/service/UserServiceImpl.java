@@ -1,7 +1,10 @@
 package org.ajeet.user_service.service;
 
+import org.ajeet.user_service.dto.CreateUserRequest;
+import org.ajeet.user_service.dto.UserResponse;
 import org.ajeet.user_service.entity.User;
 import org.ajeet.user_service.exception.UserAlreadyExistsException;
+import org.ajeet.user_service.mapper.UserMapper;
 import org.ajeet.user_service.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,18 +15,21 @@ import java.time.LocalDateTime;
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
+    private final UserMapper userMapper;
 
-    public UserServiceImpl(UserRepository userRepository) {
+    public UserServiceImpl(UserRepository userRepository, UserMapper userMapper) {
         this.userRepository = userRepository;
+        this.userMapper = userMapper;
     }
 
     @Override
     @Transactional
-    public User createUser(User user) {
-        if (userRepository.existsByEmail(user.getEmail())) {
-            throw new UserAlreadyExistsException("User already exists with email: " + user.getEmail());
+    public UserResponse createUser(CreateUserRequest request) {
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new UserAlreadyExistsException("User already exists with email: " + request.getEmail());
         }
+        User user = userMapper.toEntity(request);
         user.setCreatedAt(LocalDateTime.now());
-        return userRepository.save(user);
+        return userMapper.toResponse(userRepository.save(user));
     }
 }
