@@ -1,4 +1,15 @@
 services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.3.3
+    container_name: notification-system-keycloak
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+    ports:
+      - "8090:8080"
+    volumes:
+      - ./keycloak/notification-system-realm.json:/opt/keycloak/data/import/notification-system-realm.json:ro
   nats:
     image: nats:2.10-alpine
     container_name: notification-system-nats

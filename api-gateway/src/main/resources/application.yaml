@@ -8,6 +8,12 @@ spring:
           uri: ${USER_SERVICE_URL:http://localhost:8081}
           predicates:
             - Path=/api/users/**
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${JWT_ISSUER_URI:http://localhost:8090/realms/notification-system}
+          jwk-set-uri: ${JWT_JWK_SET_URI:http://localhost:8090/realms/notification-system/protocol/openid-connect/certs}
 
 server:
   port: ${SERVER_PORT:8080}

@@ -10,6 +10,12 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${JWT_ISSUER_URI:http://localhost:8090/realms/notification-system}
+          jwk-set-uri: ${JWT_JWK_SET_URI:http://localhost:8090/realms/notification-system/protocol/openid-connect/certs}
 
 server:
   port: ${SERVER_PORT:8081}
