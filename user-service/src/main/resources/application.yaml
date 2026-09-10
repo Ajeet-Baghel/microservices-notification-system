@@ -13,3 +13,6 @@ spring:
 
 server:
   port: ${SERVER_PORT:8081}
+
+nats:
+  url: ${NATS_URL:nats://localhost:4222}
