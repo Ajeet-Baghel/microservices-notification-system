@@ -6,6 +6,8 @@ import org.ajeet.user_service.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 @Service
 public class UserServiceImpl implements UserService {
 
@@ -21,6 +23,7 @@ public class UserServiceImpl implements UserService {
         if (userRepository.existsByEmail(user.getEmail())) {
             throw new UserAlreadyExistsException("User already exists with email: " + user.getEmail());
         }
+        user.setCreatedAt(LocalDateTime.now());
         return userRepository.save(user);
     }
 }
