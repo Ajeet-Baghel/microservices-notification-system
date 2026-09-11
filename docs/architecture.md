@@ -39,39 +39,6 @@
 
 Only the API Gateway is a public business endpoint. Notification Service does not expose a business REST API, and the backend services never communicate through REST or WebSockets.
 
-## User Creation Sequence
-
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant K as Keycloak
-    participant G as API Gateway
-    participant U as User Service
-    participant UDB as User DB
-    participant O as Outbox Relay
-    participant N as NATS JetStream
-    participant NS as Notification Service
-    participant NDB as Notification DB
-
-    C->>K: Authenticate
-    K-->>C: JWT
-    C->>G: POST /api/users + JWT
-    G->>G: Validate JWT
-    G->>U: Forward request + JWT
-    U->>U: Validate JWT and request
-    U->>UDB: Insert user and outbox event in one transaction
-    UDB-->>U: Commit
-    U-->>C: 201 Created
-    O->>UDB: Load unpublished events
-    O->>N: Publish user.created with message ID
-    N-->>O: Persisted acknowledgement
-    O->>UDB: Mark outbox event published
-    N->>NS: Deliver event
-    NS->>NDB: Idempotency check and insert notification
-    NDB-->>NS: Commit
-    NS->>N: Explicit acknowledgement
-```
-
 ## Delivery Semantics
 
 The system provides at-least-once delivery with idempotent consumption:
